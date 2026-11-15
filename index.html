@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ליאב רפאל שלום · 30</title>
+  <meta name="description" content="אלבום תמונות ליום הולדת 30 של ליאב רפאל שלום">
+  <meta name="theme-color" content="#0e0a07">
+  <meta property="og:title" content="ליאב רפאל שלום · 30">
+  <meta property="og:description" content="30 שנה של רגעים, צחוקים ואהבה">
+  <link rel="icon" href="leopard.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&family=Suez+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-card">
+      <p class="eyebrow">אלבום יום הולדת</p>
+      <p class="big-30" aria-hidden="true">30</p>
+      <div class="rule" aria-hidden="true"></div>
+      <h1>ליאב רפאל שלום</h1>
+      <p class="tagline">30 שנה של רגעים, צחוקים ואהבה</p>
+      <a class="cta" href="#album">לאלבום</a>
+    </div>
+  </header>
+
+  <nav class="year-nav" aria-label="מעבר בין שנים">
+    <ul id="year-nav-list"></ul>
+  </nav>
+
+  <main id="album" class="album" aria-live="polite"></main>
+
+  <section class="closing" aria-labelledby="closing-title">
+    <div class="closing-card">
+      <h2 id="closing-title">מזל טוב ליאב!</h2>
+      <p id="closing-message" class="closing-message"></p>
+      <p id="closing-signature" class="signature"></p>
+    </div>
+  </section>
+
+  <dialog id="lightbox" class="lightbox" aria-label="תצוגת תמונה">
+    <button class="lb-btn lb-close" type="button" aria-label="סגירה">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <button class="lb-btn lb-prev" type="button" aria-label="התמונה הקודמת">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+    <figure class="lb-figure">
+      <img id="lb-img" alt="">
+      <figcaption id="lb-caption"></figcaption>
+    </figure>
+    <button class="lb-btn lb-next" type="button" aria-label="התמונה הבאה">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+  </dialog>
+
+  <!-- נגן מוזיקה: תקליטור -->
+  <aside class="music" id="music" aria-label="נגן מוזיקה">
+    <div class="music-panel" id="music-panel">
+      <div class="music-video"><div id="yt-player"></div></div>
+      <p class="music-title" id="music-title">טוען שיר…</p>
+      <div class="music-controls">
+        <button class="m-btn" id="m-prev" type="button" aria-label="השיר הקודם">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6v12M18 6l-8 6 8 6z"/></svg>
+        </button>
+        <button class="m-btn m-play" id="m-play" type="button" aria-label="נגן">
+          <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+        </button>
+        <button class="m-btn" id="m-next" type="button" aria-label="השיר הבא">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 6v12M6 6l8 6-8 6z"/></svg>
+        </button>
+      </div>
+      <p class="music-count" id="music-count"></p>
+    </div>
+    <button class="sound-hint" id="sound-hint" type="button" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9a4 4 0 0 1 0 6M19.5 6.5a8 8 0 0 1 0 11"/></svg>
+      <span>הקישו להפעלת הצליל</span>
+    </button>
+    <button class="cd" id="cd" type="button" aria-label="פתיחת נגן המוזיקה" aria-expanded="false" aria-controls="music-panel">
+      <span class="cd-disc" aria-hidden="true"></span>
+    </button>
+  </aside>
+
+  <script src="photos.js"></script>
+  <script src="app.js"></script>
+  <script src="music.js"></script>
+  <script src="cheetahs.js"></script>
+</body>
+</html>
