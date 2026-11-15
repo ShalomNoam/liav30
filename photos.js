@@ -19,9 +19,10 @@ window.ALBUM = {
   ],
 
   // שירים שמתנגנים ברקע: קישורי SoundCloud או קבצי MP3 בתיקייה music/.
-  // אפשר לכתוב רק את הקישור/שם הקובץ, או { src: "...", title: "שם השיר" } כדי לקבוע כותרת.
+  // אפשר לכתוב רק את הקישור/שם הקובץ, או { src: "...", title: "שם השיר", start: 15 }
+  // כדי לקבוע כותרת ו/או מאיזו שנייה השיר מתחיל.
   music: [
-    "https://soundcloud.com/crosstownrebels/rafael-gotta-be-cool-1"
+    { src: "https://soundcloud.com/crosstownrebels/rafael-gotta-be-cool-1", start: 15 }
   ],
 
   closing: {

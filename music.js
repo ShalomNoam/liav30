@@ -11,7 +11,7 @@
   var list = ((window.ALBUM && window.ALBUM.music) || []).map(function (t) {
     if (typeof t === "string") t = { src: t };
     if (!t || !t.src) return null;
-    t = { src: t.src, title: t.title || "" };
+    t = { src: t.src, title: t.title || "", start: Math.max(0, Number(t.start) || 0) };
     t.sc = isSoundCloud(t.src);
     if (t.sc) t.src = cleanSC(t.src);
     else if (!t.title) {
@@ -63,7 +63,10 @@
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("error", onError);
     return {
-      load: function (t) { audio.src = t.src; },
+      load: function (t) {
+        audio.src = t.src;
+        if (t.start) audio.addEventListener("loadedmetadata", function () { audio.currentTime = t.start; }, { once: true });
+      },
       play: function () {
         var p = audio.play();
         if (p && p.catch) p.catch(function (err) { if (err && err.name === "NotAllowedError") onBlocked(); });
@@ -77,6 +80,7 @@
   var scBackend = (function () {
     var widget = null, ready = false, pending = null, wantPlay = false, current = null, apiLoading = false;
     var iframe = null;
+    var seekTo = 0;   // זמן התחלה (שניות) שמחכה לתחילת הניגון
 
     function widgetUrl(src, auto) {
       return "https://w.soundcloud.com/player/?url=" + encodeURIComponent(src) +
@@ -114,7 +118,10 @@
           if (pending && pending !== current) { var p = pending; pending = null; doLoad(p); }
           else if (wantPlay) { wantPlay = false; widget.play(); checkBlocked(); }
         });
-        widget.bind(E.PLAY, function () { if (backend() === api) onPlaying(); });
+        widget.bind(E.PLAY, function () {
+          if (seekTo) { widget.seekTo(seekTo * 1000); seekTo = 0; }
+          if (backend() === api) onPlaying();
+        });
         widget.bind(E.PAUSE, function () { if (backend() === api) onPaused(); });
         widget.bind(E.FINISH, function () { if (backend() === api) onEnded(); });
         widget.bind(E.ERROR, function () { if (backend() === api) onError(); });
@@ -149,9 +156,10 @@
 
     var api = {
       load: function (t) {
+        seekTo = t.start;
         if (!iframe) { current = t; init(t); return; }
         if (!widget || !ready && !current) { pending = t; return; }
-        if (t === current) return;
+        if (t === current) { if (ready && t.start) widget.seekTo(t.start * 1000); return; }
         doLoad(t);
       },
       play: function () {
