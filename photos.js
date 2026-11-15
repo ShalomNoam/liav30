@@ -18,11 +18,10 @@ window.ALBUM = {
     { year: "[שנה]", title: "[כיתוב קצר על השנה]", photos: [] }
   ],
 
-  // שירים שמתנגנים ברקע: קבצי MP3 בתיקייה music/.
-  // אפשר לכתוב רק שם קובץ, או { src: "music/01.mp3", title: "שם השיר" } כדי לקבוע כותרת.
+  // שירים שמתנגנים ברקע: קישורי SoundCloud או קבצי MP3 בתיקייה music/.
+  // אפשר לכתוב רק את הקישור/שם הקובץ, או { src: "...", title: "שם השיר" } כדי לקבוע כותרת.
   music: [
-    "music/01.mp3",
-    "music/02.mp3"
+    "https://soundcloud.com/crosstownrebels/rafael-gotta-be-cool-1"
   ],
 
   closing: {

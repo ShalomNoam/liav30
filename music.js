@@ -1,11 +1,20 @@
 (function () {
   "use strict";
 
-  // כל פריט ב-ALBUM.music הוא שם קובץ ("music/01.mp3") או { src: "...", title: "..." }
+  // כל פריט ב-ALBUM.music הוא:
+  //   קישור SoundCloud ("https://soundcloud.com/אמן/שיר")
+  //   קובץ שמע ("music/01.mp3")
+  //   או { src: "...", title: "..." } כדי לקבוע כותרת
+  function isSoundCloud(src) { return /^https?:\/\/(www\.|m\.)?soundcloud\.com\//i.test(src); }
+  function cleanSC(src) { return String(src).split(/[?#]/)[0].replace("//m.", "//"); }
+
   var list = ((window.ALBUM && window.ALBUM.music) || []).map(function (t) {
     if (typeof t === "string") t = { src: t };
     if (!t || !t.src) return null;
-    if (!t.title) {
+    t = { src: t.src, title: t.title || "" };
+    t.sc = isSoundCloud(t.src);
+    if (t.sc) t.src = cleanSC(t.src);
+    else if (!t.title) {
       var name = decodeURIComponent(String(t.src).split("/").pop()).replace(/\.[^.]+$/, "");
       t.title = name.replace(/[_-]+/g, " ").trim();
     }
@@ -21,15 +30,155 @@
   var playBtn = document.getElementById("m-play");
   var hint = document.getElementById("sound-hint");
 
-  var audio = new Audio();
-  audio.preload = "auto";
-  audio.volume = 0.6;
-
   var index = 0;
   var playing = false;
   var userPaused = false;   // אם המשתמש עצר, לא מפעילים מחדש לבד
-  var failures = 0;         // כמה קבצים ברצף לא נטענו
-  var blocked = false;      // הדפדפן חסם ניגון עד אינטראקציה
+  var failures = 0;         // כמה שירים ברצף לא נטענו
+
+  // ---------- מצב ----------
+  function render() {
+    root.classList.toggle("playing", playing);
+    playBtn.setAttribute("aria-label", playing ? "השהיה" : "נגן");
+    countEl.textContent = "שיר " + (index + 1) + " מתוך " + list.length;
+    titleEl.textContent = list[index].title || "שיר " + (index + 1);
+  }
+  function onPlaying() { playing = true; failures = 0; hint.hidden = true; render(); }
+  function onPaused() { playing = false; render(); }
+  function onEnded() { go(index + 1); }
+  function onError() {
+    // שיר חסר או חסום: עוברים לבא; אם אף שיר לא נטען, מסתירים את הנגן
+    failures++;
+    if (failures >= list.length) { backend().pause(); root.hidden = true; return; }
+    go(index + 1);
+  }
+  function onBlocked() { hint.hidden = false; }
+
+  // ---------- נגן קבצים (MP3) ----------
+  var fileBackend = (function () {
+    var audio = new Audio();
+    audio.preload = "auto";
+    audio.volume = 0.6;
+    audio.addEventListener("playing", onPlaying);
+    audio.addEventListener("pause", onPaused);
+    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
+    return {
+      load: function (t) { audio.src = t.src; },
+      play: function () {
+        var p = audio.play();
+        if (p && p.catch) p.catch(function (err) { if (err && err.name === "NotAllowedError") onBlocked(); });
+      },
+      pause: function () { audio.pause(); },
+      stop: function () { audio.pause(); audio.removeAttribute("src"); audio.load(); }
+    };
+  })();
+
+  // ---------- נגן SoundCloud ----------
+  var scBackend = (function () {
+    var widget = null, ready = false, pending = null, wantPlay = false, current = null, apiLoading = false;
+    var iframe = null;
+
+    function widgetUrl(src, auto) {
+      return "https://w.soundcloud.com/player/?url=" + encodeURIComponent(src) +
+        "&auto_play=" + (auto ? "true" : "false") +
+        "&visual=false&show_comments=false&show_user=false&show_reposts=false&hide_related=true&sharing=false&buying=false&download=false";
+    }
+    function setTitle() {
+      if (!widget) return;
+      widget.getCurrentSound(function (s) {
+        if (s && s.title && list[index] === current && !current.title) {
+          current.title = s.title;
+          render();
+        }
+      });
+    }
+    function init(t) {
+      iframe = document.createElement("iframe");
+      iframe.className = "sc-frame";
+      iframe.title = "SoundCloud";
+      iframe.setAttribute("allow", "autoplay; encrypted-media");
+      iframe.setAttribute("aria-hidden", "true");
+      iframe.tabIndex = -1;
+      iframe.src = widgetUrl(t.src, false);
+      root.appendChild(iframe);
+      apiLoading = true;
+      var s = document.createElement("script");
+      s.src = "https://w.soundcloud.com/player/api.js";
+      s.onload = function () {
+        widget = window.SC.Widget(iframe);
+        var E = window.SC.Widget.Events;
+        widget.bind(E.READY, function () {
+          ready = true;
+          widget.setVolume(60);
+          setTitle();
+          if (pending && pending !== current) { var p = pending; pending = null; doLoad(p); }
+          else if (wantPlay) { wantPlay = false; widget.play(); checkBlocked(); }
+        });
+        widget.bind(E.PLAY, function () { if (backend() === api) onPlaying(); });
+        widget.bind(E.PAUSE, function () { if (backend() === api) onPaused(); });
+        widget.bind(E.FINISH, function () { if (backend() === api) onEnded(); });
+        widget.bind(E.ERROR, function () { if (backend() === api) onError(); });
+      };
+      s.onerror = onError;
+      document.head.appendChild(s);
+    }
+    function doLoad(t) {
+      current = t;
+      ready = false;
+      var auto = wantPlay;
+      wantPlay = false;
+      widget.load(t.src, {
+        auto_play: auto,
+        visual: false, show_comments: false, show_user: false, show_reposts: false,
+        hide_related: true, sharing: false, buying: false, download: false,
+        callback: function () {
+          ready = true;
+          widget.setVolume(60);
+          setTitle();
+          if (auto) checkBlocked();
+        }
+      });
+    }
+    // אם הניגון לא התחיל תוך זמן קצר, כנראה הדפדפן חסם צליל
+    function checkBlocked() {
+      setTimeout(function () {
+        if (backend() !== api || playing || userPaused) return;
+        widget.isPaused(function (paused) { if (paused) onBlocked(); });
+      }, 1500);
+    }
+
+    var api = {
+      load: function (t) {
+        if (!iframe) { current = t; init(t); return; }
+        if (!widget || !ready && !current) { pending = t; return; }
+        if (t === current) return;
+        doLoad(t);
+      },
+      play: function () {
+        if (!ready) { wantPlay = true; return; }
+        widget.play();
+        checkBlocked();
+      },
+      pause: function () { wantPlay = false; if (widget) widget.pause(); },
+      stop: function () { wantPlay = false; if (widget && ready) widget.pause(); }
+    };
+    return api;
+  })();
+
+  function backend() { return list[index].sc ? scBackend : fileBackend; }
+
+  // ---------- פעולות ----------
+  function load(i) {
+    var prev = backend();
+    index = (i + list.length) % list.length;
+    var next = backend();
+    if (prev !== next) { prev.stop(); playing = false; }
+    next.load(list[index]);
+    render();
+  }
+  function play() { userPaused = false; backend().play(); }
+  function pause() { userPaused = true; backend().pause(); }
+  function go(i) { load(i); userPaused = false; play(); }
 
   // ---------- פתיחה/סגירה של הפאנל ----------
   function setOpen(open) {
@@ -44,50 +193,6 @@
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && root.classList.contains("open")) setOpen(false);
-  });
-
-  // ---------- מצב ----------
-  function render() {
-    root.classList.toggle("playing", playing);
-    playBtn.setAttribute("aria-label", playing ? "השהיה" : "נגן");
-    countEl.textContent = "שיר " + (index + 1) + " מתוך " + list.length;
-    titleEl.textContent = list[index].title || "שיר " + (index + 1);
-  }
-
-  function load(i) {
-    index = (i + list.length) % list.length;
-    audio.src = list[index].src;
-    render();
-  }
-
-  function play() {
-    userPaused = false;
-    var p = audio.play();
-    if (p && p.catch) {
-      p.then(function () { blocked = false; hint.hidden = true; })
-       .catch(function (err) {
-         if (err && err.name === "NotAllowedError") { blocked = true; hint.hidden = false; }
-       });
-    }
-  }
-  function pause() {
-    userPaused = true;
-    audio.pause();
-  }
-  function go(i) {
-    load(i);
-    userPaused = false;
-    play();
-  }
-
-  audio.addEventListener("playing", function () { playing = true; failures = 0; render(); });
-  audio.addEventListener("pause", function () { playing = false; render(); });
-  audio.addEventListener("ended", function () { go(index + 1); });
-  audio.addEventListener("error", function () {
-    // קובץ חסר או פגום: עוברים לבא; אם אף קובץ לא נטען, מסתירים את הנגן
-    failures++;
-    if (failures >= list.length) { audio.pause(); root.hidden = true; return; }
-    go(index + 1);
   });
 
   playBtn.addEventListener("click", function () { playing ? pause() : play(); });
