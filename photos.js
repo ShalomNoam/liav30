@@ -18,10 +18,11 @@ window.ALBUM = {
     { year: "[שנה]", title: "[כיתוב קצר על השנה]", photos: [] }
   ],
 
-  // שירים שמתנגנים ברקע (קישורי YouTube). אפשר להוסיף עוד קישורים לרשימה.
+  // שירים שמתנגנים ברקע: קבצי MP3 בתיקייה music/.
+  // אפשר לכתוב רק שם קובץ, או { src: "music/01.mp3", title: "שם השיר" } כדי לקבוע כותרת.
   music: [
-    "https://youtu.be/9bo5GLHncCI",
-    "https://youtu.be/JULC_bwYRNk"
+    "music/01.mp3",
+    "music/02.mp3"
   ],
 
   closing: {

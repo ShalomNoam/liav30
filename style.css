@@ -355,14 +355,6 @@ h1, h2, h3 { font-family: var(--display); font-weight: 400; margin: 0; }
 }
 .music.open .music-panel { transform: none; opacity: 1; pointer-events: auto; }
 
-.music-video {
-  aspect-ratio: 16 / 9;
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--ink);
-}
-.music-video iframe { display: block; width: 100%; height: 100%; border: 0; }
-
 .music-title {
   margin: 0;
   font-weight: 700;

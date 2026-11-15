@@ -1,39 +1,35 @@
 (function () {
   "use strict";
 
-  var urls = (window.ALBUM && window.ALBUM.music) || [];
-  function toId(u) {
-    var m = String(u).match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/);
-    return m ? m[1] : null;
-  }
-  var ids = urls.map(toId).filter(Boolean);
+  // כל פריט ב-ALBUM.music הוא שם קובץ ("music/01.mp3") או { src: "...", title: "..." }
+  var list = ((window.ALBUM && window.ALBUM.music) || []).map(function (t) {
+    if (typeof t === "string") t = { src: t };
+    if (!t || !t.src) return null;
+    if (!t.title) {
+      var name = decodeURIComponent(String(t.src).split("/").pop()).replace(/\.[^.]+$/, "");
+      t.title = name.replace(/[_-]+/g, " ").trim();
+    }
+    return t;
+  }).filter(Boolean);
+
   var root = document.getElementById("music");
-  if (!ids.length) { root.hidden = true; return; }
+  if (!list.length) { root.hidden = true; return; }
 
   var cd = document.getElementById("cd");
-  var panel = document.getElementById("music-panel");
   var titleEl = document.getElementById("music-title");
   var countEl = document.getElementById("music-count");
   var playBtn = document.getElementById("m-play");
   var hint = document.getElementById("sound-hint");
-  var mutedStart = false;   // התחלנו בלי צליל כי הדפדפן חסם
 
-  function unmute() {
-    if (!mutedStart || !ready) return;
-    mutedStart = false;
-    player.unMute();
-    player.setVolume(60);
-    if (!userPaused) player.playVideo();
-    hint.hidden = true;
-  }
-  hint.addEventListener("click", function (e) { e.stopPropagation(); unmute(); });
+  var audio = new Audio();
+  audio.preload = "auto";
+  audio.volume = 0.6;
 
-  var player = null;
-  var ready = false;
   var index = 0;
   var playing = false;
   var userPaused = false;   // אם המשתמש עצר, לא מפעילים מחדש לבד
-  var wantPlay = false;     // בקשה לנגן לפני שהנגן נטען
+  var failures = 0;         // כמה קבצים ברצף לא נטענו
+  var blocked = false;      // הדפדפן חסם ניגון עד אינטראקציה
 
   // ---------- פתיחה/סגירה של הפאנל ----------
   function setOpen(open) {
@@ -54,85 +50,63 @@
   function render() {
     root.classList.toggle("playing", playing);
     playBtn.setAttribute("aria-label", playing ? "השהיה" : "נגן");
-    countEl.textContent = "שיר " + (index + 1) + " מתוך " + ids.length;
+    countEl.textContent = "שיר " + (index + 1) + " מתוך " + list.length;
+    titleEl.textContent = list[index].title || "שיר " + (index + 1);
   }
-  function updateTitle() {
-    var t = "";
-    try { t = player.getVideoData().title; } catch (e) {}
-    titleEl.textContent = t || "שיר " + (index + 1);
+
+  function load(i) {
+    index = (i + list.length) % list.length;
+    audio.src = list[index].src;
+    render();
   }
 
   function play() {
     userPaused = false;
-    if (!ready) { wantPlay = true; return; }
-    player.playVideo();
+    var p = audio.play();
+    if (p && p.catch) {
+      p.then(function () { blocked = false; hint.hidden = true; })
+       .catch(function (err) {
+         if (err && err.name === "NotAllowedError") { blocked = true; hint.hidden = false; }
+       });
+    }
   }
   function pause() {
     userPaused = true;
-    if (ready) player.pauseVideo();
+    audio.pause();
   }
   function go(i) {
-    index = (i + ids.length) % ids.length;
+    load(i);
     userPaused = false;
-    if (ready) player.loadVideoById(ids[index]);
-    else wantPlay = true;
-    render();
+    play();
   }
+
+  audio.addEventListener("playing", function () { playing = true; failures = 0; render(); });
+  audio.addEventListener("pause", function () { playing = false; render(); });
+  audio.addEventListener("ended", function () { go(index + 1); });
+  audio.addEventListener("error", function () {
+    // קובץ חסר או פגום: עוברים לבא; אם אף קובץ לא נטען, מסתירים את הנגן
+    failures++;
+    if (failures >= list.length) { audio.pause(); root.hidden = true; return; }
+    go(index + 1);
+  });
 
   playBtn.addEventListener("click", function () { playing ? pause() : play(); });
   document.getElementById("m-next").addEventListener("click", function () { go(index + 1); });
   document.getElementById("m-prev").addEventListener("click", function () { go(index - 1); });
+  hint.addEventListener("click", function (e) { e.stopPropagation(); play(); });
 
-  // הדפדפנים לא מאפשרים צליל לפני אינטראקציה, לכן המוזיקה מתחילה בלחיצה/מגע הראשונים באתר
-  // אם הדפדפן חסם צליל, ההפעלה מתחילה מושתקת והצליל נדלק בנגיעה הראשונה באתר
+  // הדפדפנים לא מאפשרים צליל לפני אינטראקציה, לכן אם הניגון האוטומטי נחסם
+  // המוזיקה מתחילה בלחיצה/מגע הראשונים באתר
   function firstGesture() {
     document.removeEventListener("pointerdown", firstGesture, true);
     document.removeEventListener("touchstart", firstGesture, true);
     document.removeEventListener("keydown", firstGesture, true);
-    if (mutedStart) unmute();
-    else if (!userPaused && !playing) play();
+    if (!userPaused && !playing) play();
   }
   document.addEventListener("pointerdown", firstGesture, true);
   document.addEventListener("touchstart", firstGesture, true);
   document.addEventListener("keydown", firstGesture, true);
 
-  // ---------- YouTube IFrame API ----------
-  window.onYouTubeIframeAPIReady = function () {
-    player = new YT.Player("yt-player", {
-      width: "100%",
-      height: "100%",
-      videoId: ids[0],
-      playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, controls: 1 },
-      events: {
-        onReady: function () {
-          ready = true;
-          player.setVolume(60);
-          updateTitle();
-          if (wantPlay) { wantPlay = false; player.loadVideoById(ids[index]); }
-          else player.playVideo();
-          // ניגון אוטומטי עם צליל; אם נחסם, מנגנים מושתק עד הנגיעה הראשונה
-          setTimeout(function () {
-            var st = player.getPlayerState();
-            if (playing || userPaused || st === 1 || st === 3) return;
-            mutedStart = true;
-            player.mute();
-            player.playVideo();
-            hint.hidden = false;
-          }, 1500);
-        },
-        onStateChange: function (e) {
-          if (e.data === YT.PlayerState.PLAYING) { playing = true; updateTitle(); }
-          else if (e.data === YT.PlayerState.PAUSED) { playing = false; }
-          else if (e.data === YT.PlayerState.ENDED) { playing = false; go(index + 1); return; }
-          render();
-        },
-        onError: function () { go(index + 1); }
-      }
-    });
-  };
-
-  var s = document.createElement("script");
-  s.src = "https://www.youtube.com/iframe_api";
-  document.head.appendChild(s);
-  render();
+  load(0);
+  play();
 })();
