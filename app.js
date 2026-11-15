@@ -4,8 +4,9 @@
   var data = window.ALBUM || { years: [], closing: {} };
   var album = document.getElementById("album");
   var navList = document.getElementById("year-nav-list");
-  var CAMERA =
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>';
+  // זוויות קבועות (לא אקראיות) כדי שהעמוד ייראה אותו דבר בכל טעינה
+  var TILTS = [-4, 3, -2, 5, -5, 2, -3, 4];
+  var TAPES = [-6, 4, -3, 7, -8, 2];
 
   // כל התמונות ברצף אחד, בשביל הלייטבוקס
   var allPhotos = [];
@@ -43,31 +44,29 @@
     head.appendChild(el("span", "count", photos.length ? photos.length + " תמונות" : "בקרוב"));
     card.appendChild(head);
 
-    var grid = el("div", "grid");
+    // תמונות מודבקות על הרקע: כל תמונה מוטה קצת אחרת ועם סלוטייפ
     if (photos.length) {
-      photos.forEach(function (p) {
+      var board = el("div", "board");
+      photos.forEach(function (p, n) {
         var index = allPhotos.length;
         allPhotos.push({ src: p.src, caption: p.caption || "", year: y.year });
         var btn = el("button", "photo-btn");
         btn.type = "button";
         btn.setAttribute("aria-label", "הגדלת תמונה" + (p.caption ? ": " + p.caption : "") + " (" + y.year + ")");
+        btn.style.setProperty("--tilt", TILTS[(index + n) % TILTS.length] + "deg");
+        btn.style.setProperty("--tape", TAPES[index % TAPES.length] + "deg");
         var img = el("img");
         img.src = p.src;
         img.alt = p.caption || "תמונה משנת " + y.year;
         img.loading = "lazy";
         img.decoding = "async";
         btn.appendChild(img);
+        if (p.caption) btn.appendChild(el("span", "photo-caption", p.caption));
         btn.addEventListener("click", function () { openLightbox(index); });
-        grid.appendChild(btn);
+        board.appendChild(btn);
       });
-    } else {
-      for (var s = 0; s < 3; s++) {
-        var slot = el("div", "slot");
-        slot.innerHTML = CAMERA + "<span>מקום לתמונה</span>";
-        grid.appendChild(slot);
-      }
+      card.appendChild(board);
     }
-    card.appendChild(grid);
     album.appendChild(card);
   });
 
